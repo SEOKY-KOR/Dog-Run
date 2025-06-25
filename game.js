@@ -1,175 +1,232 @@
-class Player {
-    constructor(gameWidth, gameHeight) {
-        this.gameWidth = gameWidth;
-        this.gameHeight = gameHeight;
-        this.width = 50; // 캐릭터 너비
-        this.height = 50; // 캐릭터 높이
-        this.x = 50;
-        this.y = this.gameHeight - this.height; // 바닥에 서 있도록
-        this.vy = 0; // 수직 속도 (Velocity Y)
-        this.weight = 1; // 중력 값
-        this.jumpPower = -20; // 점프 시 수직 속도
-        this.canDoubleJump = true;
-        this.health = 100;
-    }
+// 페이지 로드가 완료되면 게임을 시작합니다.
+window.addEventListener('load', function(){
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 800;
+    canvas.height = 500;
 
-    draw(context) {
-        context.fillStyle = 'brown'; // 임시로 갈색 사각형으로 표시
-        context.fillRect(this.x, this.y, this.width, this.height);
-    }
-
-    update(input) {
-        // 키 입력 처리
-        if (input.includes('z') && this.onGround()) { // 'z'를 누르고 땅에 있으면
-            this.vy = this.jumpPower;
-        }
-        // 이중 점프 로직 추가 ('x' 키)
-        // 슬라이드 로직 추가 ('c' 키)
-
-        // 수직 움직임 (중력 적용)
-        this.y += this.vy;
-        if (!this.onGround()) {
-            this.vy += this.weight;
-        } else {
-            this.vy = 0;
-            this.y = this.gameHeight - this.height; // 땅을 뚫지 않도록
+    /**
+     * 키보드 입력을 처리하는 클래스
+     * 'z', 'x', 'c' 키의 눌림 상태를 배열로 관리합니다.
+     */
+    class InputHandler {
+        constructor() {
+            this.keys = [];
+            window.addEventListener('keydown', e => {
+                const key = e.key.toLowerCase();
+                if ((key === 'z' || key === 'x' || key === 'c') && this.keys.indexOf(key) === -1){
+                    this.keys.push(key);
+                }
+            });
+            window.addEventListener('keyup', e => {
+                const key = e.key.toLowerCase();
+                if (key === 'z' || key === 'x' || key === 'c'){
+                    this.keys.splice(this.keys.indexOf(key), 1);
+                }
+            });
         }
     }
-    
-    // 땅에 있는지 확인하는 함수
-    onGround() {
-        return this.y >= this.gameHeight - this.height;
-    }
-}
 
-class InputHandler {
-    constructor() {
-        this.keys = [];
-        // 키를 눌렀을 때
-        window.addEventListener('keydown', e => {
-            if ((e.key === 'z' || e.key === 'x' || e.key === 'c') 
-                && this.keys.indexOf(e.key) === -1) {
-                this.keys.push(e.key);
+    /**
+     * 주인공 강아지를 정의하는 클래스
+     */
+    class Player {
+        constructor(gameWidth, gameHeight){
+            this.gameWidth = gameWidth;
+            this.gameHeight = gameHeight;
+            this.width = 60;
+            this.height = 60;
+            this.x = 100;
+            this.y = this.gameHeight - this.height;
+            // this.image = document.getElementById('playerImage'); // 이미지 사용할 경우
+            this.vy = 0; // 수직 속도 (Velocity Y)
+            this.weight = 0.8; // 중력
+            this.jumpPower = -20;
+            this.canDoubleJump = true;
+            this.isSliding = false;
+            this.slideTimer = 0;
+            this.slideDuration = 1000; // 1초간 슬라이드
+        }
+        draw(context){
+            // context.drawImage(this.image, this.x, this.y, this.width, this.height);
+            context.fillStyle = 'brown';
+            context.fillRect(this.x, this.y, this.width, this.height);
+        }
+        update(input, deltaTime){
+            // 1. 충돌 감지 로직 (이후에 추가)
+
+            // 2. 입력 처리
+            if (input.includes('z') && this.onGround()){
+                this.vy = this.jumpPower;
+                this.canDoubleJump = true;
+            } else if (input.includes('x') && !this.onGround() && this.canDoubleJump) {
+                this.vy = this.jumpPower * 0.8; // 이중 점프는 조금 낮게
+                this.canDoubleJump = false;
+            } else if (input.includes('c') && this.onGround() && !this.isSliding) {
+                this.isSliding = true;
+                this.slideTimer = this.slideDuration;
+                this.height = this.height / 2; // 슬라이드 시 높이 감소
+                this.y += this.height;
             }
-        });
-        // 키를 뗐을 때
-        window.addEventListener('keyup', e => {
-            if (e.key === 'z' || e.key === 'x' || e.key === 'c') {
-                this.keys.splice(this.keys.indexOf(e.key), 1);
+
+            // 3. 슬라이드 상태 관리
+            if (this.isSliding) {
+                this.slideTimer -= deltaTime;
+                if (this.slideTimer <= 0) {
+                    this.isSliding = false;
+                    this.y -= this.height; // 원래 위치로 복귀
+                    this.height = this.height * 2; // 원래 높이로 복귀
+                }
             }
-        });
-    }
-}
 
-class Obstacle {
-    constructor(gameWidth, gameHeight) {
-        this.gameWidth = gameWidth;
-        this.gameHeight = gameHeight;
-        this.width = 40;
-        this.height = 80;
-        this.x = this.gameWidth; // 화면 오른쪽 끝에서 시작
-        this.y = this.gameHeight - this.height; // 바닥에 생성
-        this.speed = 5; // 왼쪽으로 이동하는 속도
-    }
-    
-    draw(context) {
-        context.fillStyle = 'red';
-        context.fillRect(this.x, this.y, this.width, this.height);
-    }
-    
-    update() {
-        this.x -= this.speed;
-    }
-}
-
-// 1. 캔버스 설정
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d'); // 캔버스에 그림을 그릴 때 사용하는 붓(context)
-
-// 캔버스 크기 설정
-canvas.width = 800;
-canvas.height = 400;
-
-// 게임의 핵심! 게임 루프 함수
-function gameLoop() {
-    // 1. UPDATE: 게임 상태 업데이트
-    update();
-    
-    // 2. DRAW: 화면에 그리기
-    draw();
-
-    // 3. 다음 프레임에 gameLoop 함수를 다시 호출
-    // 이것이 계속해서 게임을 실행하게 만드는 원리입니다.
-    requestAnimationFrame(gameLoop);
-}
-
-// 최초 게임 루프 실행
-gameLoop();
-
-// --- 앞으로 만들 함수들 ---
-function update() {
-    // 여기에 캐릭터, 장애물 등의 상태 업데이트 로직이 들어갑니다.
-}
-
-function draw() {
-    // 매 프레임마다 캔버스를 깨끗하게 지웁니다.
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-// game.js 파일 상단에 클래스들을 붙여넣거나 import 합니다.
-
-// --- 캔버스 설정 (기존 코드) ---
-
-// 1. 객체 생성
-const player = new Player(canvas.width, canvas.height);
-const input = new InputHandler();
-const obstacles = []; // 장애물들을 담을 배열
-
-let obstacleTimer = 0;
-const obstacleInterval = 2000; // 2초마다 장애물 생성
-
-// 2. 게임 루프 수정
-function gameLoop(timestamp) { // timestamp는 requestAnimationFrame이 제공
-    // ... 기존 루프 코드
-}
-
-function update() {
-    player.update(input.keys);
-
-    // 장애물 생성 로직
-    if (obstacleTimer > obstacleInterval) {
-        obstacles.push(new Obstacle(canvas.width, canvas.height));
-        obstacleTimer = 0;
-    } else {
-        // deltaTime을 사용해야 프레임 속도와 관계없이 일정하게 시간이 흐름
-        // deltaTime 계산: let deltaTime = timestamp - lastTime; lastTime = timestamp;
-        obstacleTimer += 16; // 간단히 16ms(60fps 기준)를 더하는 방식
+            // 4. 수직 움직임 (중력)
+            this.y += this.vy;
+            if (!this.onGround()){
+                this.vy += this.weight;
+            } else {
+                this.vy = 0;
+                this.y = this.gameHeight - this.height; // 땅을 뚫지 않도록 보정
+                this.canDoubleJump = true; // 땅에 닿으면 이중 점프 가능
+            }
+        }
+        onGround(){
+            return this.y >= this.gameHeight - this.height;
+        }
     }
 
-    // 모든 장애물 업데이트 및 충돌 검사
-    obstacles.forEach(obstacle => {
-        obstacle.update();
-        
-        // 충돌 감지 (AABB: Axis-Aligned Bounding Box)
-        if (player.x < obstacle.x + obstacle.width &&
-            player.x + player.width > obstacle.x &&
-            player.y < obstacle.y + obstacle.height &&
-            player.y + player.height > obstacle.y) {
+    /**
+     * 무한 스크롤 배경을 처리하는 클래스
+     */
+    class Background {
+        constructor(gameWidth, gameHeight) {
+            this.gameWidth = gameWidth;
+            this.gameHeight = gameHeight;
+            // this.image = document.getElementById('backgroundImage');
+            this.x = 0;
+            this.y = 0;
+            this.width = this.gameWidth; // 배경 이미지는 캔버스 너비와 같다고 가정
+            this.height = this.gameHeight;
+            this.speed = 3;
+        }
+        draw(context){
+            // context.drawImage(this.image, this.x, this.y, this.width, this.height);
+            // 두 번째 이미지를 그려서 끊김없이 연결
+            // context.drawImage(this.image, this.x + this.width, this.y, this.width, this.height);
             
-            // 충돌 발생!
-            console.log('Collision!');
-            // 여기서 게임 오버 처리 또는 체력 감소 로직을 넣습니다.
+            // 이미지가 없을 때 임시 배경
+            context.fillStyle = '#87CEEB';
+            context.fillRect(0, 0, this.width, this.height);
         }
-    });
-}
+        update(){
+            this.x -= this.speed;
+            if (this.x < 0 - this.width) this.x = 0; // 이미지가 화면 밖으로 나가면 위치 초기화
+        }
+    }
 
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    player.draw(ctx);
-    obstacles.forEach(obstacle => {
-        obstacle.draw(ctx);
-    });
-}
+    /**
+     * 장애물을 정의하는 클래스
+     */
+    class Obstacle {
+        constructor(gameWidth, gameHeight){
+            this.gameWidth = gameWidth;
+            this.gameHeight = gameHeight;
+            this.width = 50;
+            this.height = Math.random() * 50 + 50; // 높이 랜덤
+            this.x = this.gameWidth;
+            this.y = this.gameHeight - this.height;
+            this.speed = 5;
+            this.markedForDeletion = false;
+        }
+        draw(context){
+            context.fillStyle = 'red';
+            context.fillRect(this.x, this.y, this.width, this.height);
+        }
+        update(){
+            this.x -= this.speed;
+            if (this.x < 0 - this.width) this.markedForDeletion = true;
+        }
+    }
 
-// --- 게임 루프 최초 실행 (기존 코드) ---
-    // 여기에 배경, 캐릭터, 장애물 등을 그리는 코드가 들어갑니다.
-}
+    /**
+     * 화면에 떠다니는 텍스트(점수, 아이템 효과 등)를 처리하는 클래스
+     */
+    function displayStatusText(context, score) {
+        context.font = '40px Helvetica';
+        context.fillStyle = 'black';
+        context.fillText('Score: ' + score, 20, 50);
+        // 여기에 체력, 시간 등 추가
+    }
+
+
+    // --- 게임 로직의 핵심 부분 ---
+
+    const input = new InputHandler();
+    const player = new Player(canvas.width, canvas.height);
+    const background = new Background(canvas.width, canvas.height);
+
+    let lastTime = 0;
+    let obstacleTimer = 0;
+    let obstacleInterval = 1500; // 1.5초마다 장애물 생성
+    let obstacles = [];
+    let score = 0;
+    let gameOver = false;
+
+    /**
+     * 장애물과 아이템을 생성하고 관리하는 함수
+     */
+    function handleObstacles(deltaTime){
+        if (obstacleTimer > obstacleInterval){
+            obstacles.push(new Obstacle(canvas.width, canvas.height));
+            obstacleTimer = 0;
+        } else {
+            obstacleTimer += deltaTime;
+        }
+        obstacles.forEach(obstacle => {
+            obstacle.update(deltaTime);
+            // 충돌 감지
+            if (
+                player.x < obstacle.x + obstacle.width &&
+                player.x + player.width > obstacle.x &&
+                player.y < obstacle.y + obstacle.height &&
+                player.y + player.height > obstacle.y
+            ) {
+                gameOver = true; // 충돌 시 게임 오버
+            }
+        });
+        // 화면 밖으로 나간 장애물 제거
+        obstacles = obstacles.filter(obstacle => !obstacle.markedForDeletion);
+    }
+    
+    /**
+     * 게임의 메인 루프 (심장)
+     * 매 프레임마다 게임 상태를 업데이트하고 화면에 그립니다.
+     */
+    function animate(timestamp) {
+        const deltaTime = timestamp - lastTime;
+        lastTime = timestamp;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        background.draw(ctx);
+        // background.update(); // 배경 스크롤 시 주석 해제
+
+        player.draw(ctx);
+        player.update(input.keys, deltaTime);
+
+        handleObstacles(deltaTime);
+        
+        displayStatusText(ctx, score);
+
+        if (!gameOver) {
+            requestAnimationFrame(animate);
+        } else {
+            // 게임 오버 화면 표시
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'black';
+            ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2);
+        }
+    }
+
+    // 첫 프레임 시작
+    animate(0);
+});
