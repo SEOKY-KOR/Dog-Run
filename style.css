@@ -1,0 +1,13 @@
+body {
+    background-color: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+canvas {
+    border: 2px solid black;
+    background-color: skyblue; /* 임시 배경색 */
+}
